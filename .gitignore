@@ -1,7 +1,47 @@
-# Ignorer tous les fichiers temporaires
-*.log
-*.tmp
-
-# Ignorer les dossiers spécifiques
+# ============ DEPENDANCES ============
 /node_modules
 /frontend/node_modules
+/.pnp
+.pnp.js
+
+# ============ SECRETS — jamais sur GitHub ============
+# Backend
+.env
+.env.*
+!.env.example
+# Frontend (Vite)
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ============ BUILDS ============
+/build
+/dist
+/frontend/build
+/frontend/dist
+
+# ============ UPLOADS (fichiers envoyés par les utilisateurs) ============
+/frontend/public/uploads
+
+# ============ LOGS & TEMPORAIRES ============
+*.log
+*.tmp
+logs/
+
+# ============ TESTS / CACHES ============
+/coverage
+/frontend/coverage
+.eslintcache
+.cache/
+node_modules/.cache/
+frontend/node_modules/.cache/
+
+# ============ IDE / OS ============
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ============ DEPLOIEMENT ============
+.vercel
+.netlify
