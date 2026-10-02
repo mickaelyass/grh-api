@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "db:start": "sudo systemctl start postgresql || sudo pg_ctlcluster 16 main start",
+    "db:stop": "sudo systemctl stop postgresql || sudo pg_ctlcluster 16 main stop",
+    "db:status": "pg_lsclusters",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

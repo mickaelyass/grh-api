@@ -18,7 +18,7 @@ const { planifierCronConges } = require('./cronjob/congesCron');
 
 const app = express();
 // ... après const app = express();
-app.use(
+/* app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
@@ -29,7 +29,7 @@ app.use(
       },
     },
   })
-);
+); */
 
 // ... reste de tes middlewares (express.json, cors, etc.)
 const server = http.createServer(app);
@@ -39,7 +39,7 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL, // Utilise FRONTEND_URL depuis .env
+    origin:`http://localhost:3000` , // Utilise FRONTEND_URL depuis .env process.env.FRONTEND_URL 
     methods: '*',
   })
 );
@@ -81,7 +81,25 @@ server.listen(port, () => {
       planifierCronConges();
     })
     .catch((err) => {
-      console.error('Erreur de base de données :', err);
+      console.error('Erreur de base de données :', err.message);
+
+      // Message d'aide ciblé quand PostgreSQL n'est simplement pas démarré
+      if (err.name === 'SequelizeConnectionRefusedError') {
+        const address = err.parent?.address || '127.0.0.1';
+        const port = err.parent?.port || process.env.DB_PORT || 5432;
+        console.error(
+          `\n👉 Aucune instance PostgreSQL n'écoute sur ${address}:${port}.`
+        );
+        console.error('   Démarrez le service, puis relancez le serveur :');
+        console.error('     sudo systemctl start postgresql      # démarre la base');
+        console.error('     sudo systemctl enable postgresql     # démarre aussi au boot');
+        console.error('\n   Vérification :  pg_lsclusters   (doit afficher "online")');
+        console.error('   Le serveur Node reste démarré, il suffit de le relancer pour reconnecter la base.');
+      }
+
+      if (err.parent) {
+        console.error('Détail technique :', err.parent.code || err.parent.message);
+      }
     });
 });
   
