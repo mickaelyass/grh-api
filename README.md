@@ -1,161 +1,92 @@
-# GRH — Gestion des Ressources Humaines
+# GRH — API Backend (Gestion des Ressources Humaines)
 
-Application **full-stack** de gestion des ressources humaines : utilisateurs et
-rôles, dossiers du personnel, congés (avec circuit de validation), présences,
-évaluations, notes de service et **notifications temps réel**.
+API **REST** de l'application **GRH (Gestion des Ressources Humaines)** :
+authentification JWT, dossiers du personnel, congés, présences, évaluations,
+notifications temps réel et sauvegardes planifiées.
 
-> **Backend** : Node.js · Express · Sequelize · PostgreSQL · JWT · Socket.IO ·
-> node-cron · Resend/nodemailer (e-mails) · multer (upload) · helmet.
-> **Frontend** : React 18 · Vite · CoreUI Free React Admin · Redux ·
-> FullCalendar · Chart.js · Formik/Yup · socket.io-client.
+> **Stack** : Node.js · Express · Sequelize · PostgreSQL · JWT · Socket.IO ·
+> node-cron · Bcrypt · Morgan · Nodemailer · Multer.
+
+> ℹ️ Ce dépôt ne contient que le **backend**. L'interface d'administration React
+> correspondante est dans le dépôt **`grh-web`** (les deux proviennent de la
+> scission de l'ancien dépôt `repository_2`, historique préservé via
+> `git subtree split`).
 
 ---
 
 ## 1. Fonctionnalités
 
-- **Authentification & rôles** : `Admin`, `Chef`, `Directrice`, `Gardien`,
-  `Utilisateur` (guards de routes dédiés côté frontend).
-- **Dossiers du personnel** : informations identité, professionnelles, bancaires
-  et complémentaires ; diplômes, distinctions, sanctions, postes antérieurs,
-  mutations, pièces jointes.
-- **Congés** : demande, puis **circuit de validation** (Chef → Directrice) ;
-  décompte automatique des jours.
-- **Présences** (fiches de présence) et **évaluations**.
-- **Notifications** temps réel **Socket.IO** + *cron* mensuel d'incrément des
-  jours de congés.
-- **Réinitialisation de mot de passe** par e-mail.
-- **Tableau de bord** (graphiques) et calendrier (FullCalendar).
+- **Authentification** : inscription, connexion, rôles
+  (`Admin`, `Chef`, `Directrice`, `Gardien`, `Utilisateur`) + mot de passe oublié.
+- **Dossiers du personnel** : identité, informations professionnelles,
+  bancaires, complémentaires ; diplômes, distinctions, sanctions, postes
+  antérieurs, mutations, pièces jointes.
+- **Congés** : demande et circuit de validation (Chef → Directrice).
+- **Présences** et **évaluations**.
+- **Utilisateurs**, **documents**, **notifications** et **utilitaires**.
+- **Notifications temps réel** via **Socket.IO**.
+- **Sauvegardes planifiées** avec `node-cron`.
 
 ---
 
 ## 2. Structure
 
 ```text
-repository_2/
-├── index.js                 # Entrée Express : routes, Socket.IO, Sequelize, helmet, CORS
-├── db.js                    # Sequelize (PostgreSQL via DATABASE_URL, SSL)
-├── package.json
-├── .env                     # PORT, DATABASE_URL, FRONTEND_URL, JWT_SECRET, ...
-├── controllers/             # utilisateur, dossier, demandeConges, presence,
-│                            # evaluation, notification
-├── cronjob/
-│   └── conguesCron.js       # « 0 0 1 * * » : +2 jours de congés / mois
-├── routes/
-│   ├── utilisateurRoutes.js # /api/users : register, login, CRUD, reset password
-│   ├── dossierRoutes.js · congeRoutes.js · presenceRoutes.js
-│   ├── evaluationRoute.js · notificationRoute.js
-│   └── userProfileRoute.js  # upload de fichiers
-├── models/                  # Sequelize (voir ci-dessous)
-├── lib/
-│   └── resend.js            # Envoi d'e-mails (Resend)
-├── utils/
-│   ├── auth.js              # JWT + bcrypt
-│   └── socket.js            # Initialisation Socket.IO
-└── frontend/                # Application React (CoreUI Admin, Vite)
-    ├── package.json
-    └── src/
-        ├── App.js · routes.js
-        ├── AdminRoute.js · ChefRoute.js · DirectriceRoute.js
-        │   · SecuriteRoute.js · UserRoute.js      # guards par rôle
-        ├── layout/            # DefaultLayout, DirectriceLayout, GardienLayout, ...
-        ├── components/        # header, sidebar, breadcrumb, footer
-        ├── views/comp/        # CongeComponents, DossierComponents, dashboards...
-        ├── _nav*.js           # menus par rôle
-        └── assets/
+├── index.js                 # point d'entrée : app, Socket.IO, cron
+├── server.js                # création HTTP + WebSocket + uploads
+├── db.js                    # connexion Sequelize / PostgreSQL
+├── .env                     # configuration (NON versionné)
+│
+├── auth/                    # routes & contrôleurs d'authentification (JWT)
+├── controllers/             # Conge, Dossier, Evalue, FichePresence, Utilisateur, UploadFile
+├── routes/                  # express.Router : /user, /dossier, /conge, /evalue, ...
+├── models/                  # Sequelize : Utilisateurs, Dossiers, Conges, ...
+├── utils/                   # mailer, signatures, environnements
+├── cronjob/                 # tâches planifiées (sauvegardes)
+├── lib/                     # utilitaires partagés
+│
+└── uploads/                 # fichiers envoyés (ignoré par Git)
 ```
 
 ---
 
-## 3. Modèles de données (Sequelize)
+## 3. Prérequis
 
-`utilisateur`, `userProfile`, `dossier`, `infoIdent`, `infoPro`, `infoBank`,
-`infoComplementaire`, `diplome`, `distinction`, `sanction`, `posteAnterieur`,
-`detailsMutation`, `demandeConge`, `fichePresence`, `notification`,
-`piece_jointe`, `association` (définition des relations).
-
----
-
-## 4. Prérequis
-
-- **Node.js** ≥ 18 et npm
-- **PostgreSQL** ≥ 13
+- **Node.js** ≥ 18
+- **PostgreSQL** ≥ 12 accessible
+- Variable d'environnement `PGDATABASE` (et `PGUSER`, `PGPASSWORD`, `PGHOST`)
 
 ---
 
-## 5. Configuration (`.env`)
+## 4. Installation & exécution
+
+```bash
+npm install
+npm start        # démarre le serveur
+npm test         # tests (si configurés)
+```
+
+### Configuration (`.env`)
+
+Créer un fichier **`.env`** local — il est **ignoré par Git** (voir
+`.gitignore`) : ne jamais y committer de secrets.
 
 ```env
-PORT=3003
-DATABASE_URL=postgres://user:password@localhost:5432/db_pgdp
-FRONTEND_URL=http://localhost:3001
-JWT_SECRET=change_me
-```
-
-> ⚠️ Le fichier `.env` **versionné** contient des identifiants réels → à retirer
-> du dépôt et régénérer (voir §8).
-
----
-
-## 6. Installation & exécution
-
-### Backend
-
-```bash
-npm install
-node index.js       # http://localhost:3003
-```
-
-Au démarrage : `sequelize.authenticate()` puis `sequelize.sync({ alter: true })`
-et programmation de la tâche *cron* des congés.
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm start           # Vite (serveur de développement)
-npm run build       # build de production
+PGDATABASE=grh
+PGUSER=postgres
+PGPASSWORD=...
+PGHOST=localhost
 ```
 
 ---
 
-## 7. API REST
+## 5. Points d'attention
 
-| Préfixe | Domaine |
-|---|---|
-| `/api/users` | Utilisateurs (register, login, CRUD, reset password) |
-| `/api/dossiers` | Dossiers du personnel |
-| `/api` | Congés (`congeRoutes`) |
-| `/api/presences` | Fiches de présence |
-| `/api/notifications` | Notifications |
-| `/api/evaluations` | Évaluations |
-
-**Exemple — authentification** (`/api/users`) :
-
-| Méthode | Route | Description |
-|---|---|---|
-| `POST` | `/register` | Créer un utilisateur (`matricule`, `password`, `role`) |
-| `POST` | `/login` | Connexion → renvoie un JWT, le rôle, l'`id_user` |
-| `GET` | `/` | Lister les utilisateurs |
-| `PUT` / `DELETE` | `/:id` | Mettre à jour / supprimer |
-| `POST` | `/request-reset` | Envoyer un lien de réinitialisation |
-| `POST` | `/reset-password/:token` | Réinitialiser le mot de passe |
-
----
-
-## 8. Points d'attention / pistes d'amélioration
-
-- **Sécurité** :
-  - le fichier **`.env` est versionné** avec des identifiants PostgreSQL réels →
-    à supprimer du dépôt, révoquer les mots de passe et utiliser des variables
-    d'environnement côté hébergeur ;
-  - la clé JWT est codée en dur (`utils/auth.js`) ;
-  - le *reset password* embarque des identifiants SMTP en clair dans le
-    contrôleur → à déplacer dans `.env`.
-- **CORS/Socket.IO** : Socket.IO autorise `origin: '*'` → à restreindre.
-- **Migrations** : `sequelize.sync({ alter: true })` modifie le schéma au
-  démarrage → préférer des migrations versionnées en production.
-- **Cohérence des secrets** : vérifier l'unicité de la clé de signature JWT entre
-  la génération et la vérification des jetons.
-- Nettoyer le dépôt des dossiers générés (`frontend/dist`, `node_modules`).
-
+- Les routes montées dans `index.js` sont préfixées par leur chemin
+  (ex. `app.use("/user", ...)`).
+- `uploads/` reçoit les pièces jointes : il est ignoré par Git mais doit exister
+  sur le disque.
+- Les chemins d'accès aux documents utilisent `process.env` — les définir dans
+  `.env` selon l'environnement (dev / prod).
+- ⚠️ **Dépendances** : GitHub indique des vulnérabilités connues dans
+  `package.json` — mettre à jour via `npm audit fix` après installation.
