@@ -1,0 +1,69 @@
+// controllers/dossier/part3.js — mise à jour, assign-user
+const sequelize = require('../../db');
+const {
+  Dossier, InfoIdent, InfoPro, InfoBank, InfoComplementaire,
+  Utilisateur,
+} = require('../../models/association');
+const { crediterJusqua } = require('../../services/soldeService');
+const { verifierAccesDossier } = require('./helpers');
+
+exports.updateDossier = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const dossier = await Dossier.findByPk(req.params.id, { transaction: t });
+    if (!dossier) { await t.rollback(); return res.status(404).json({ error: 'Dossier non trouvé' }); }
+    if (!(await verifierAccesDossier(req, dossier))) {
+      await t.rollback();
+      return res.status(403).json({ error: 'Accès refusé à ce dossier.' });
+    }
+    if (req.body.matricule && req.body.matricule !== dossier.matricule) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Le matricule est immuable : il ne peut pas être modifié.' });
+    }
+    const { infoIdent, infoPro, infoBank, infoComplementaire } = req.body;
+    if (infoIdent) await InfoIdent.update(infoIdent, { where: { dossier_id: dossier.id_dossier }, transaction: t });
+    if (infoPro) await InfoPro.update(infoPro, { where: { dossier_id: dossier.id_dossier }, transaction: t });
+    if (infoBank) await InfoBank.update(infoBank, { where: { dossier_id: dossier.id_dossier }, transaction: t });
+    if (infoComplementaire) {
+      await InfoComplementaire.update(infoComplementaire, { where: { dossier_id: dossier.id_dossier }, transaction: t });
+    }
+    if (infoPro && infoPro.dat_prise_fonction) {
+      await crediterJusqua(dossier.matricule, new Date(), { transaction: t, auteur: req.user.matricule });
+    }
+    await t.commit();
+    const { INCLUDE_DOSSIER } = require('./helpers');
+    const maj = await Dossier.findByPk(dossier.id_dossier, { include: INCLUDE_DOSSIER });
+    res.status(200).json(maj);
+  } catch (error) {
+    await t.rollback();
+    res.status(500).json({ error: 'Erreur lors de la mise à jour du dossier : ' + error.message });
+  }
+};
+
+exports.assignUser = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const dossier = await Dossier.findByPk(req.params.id, { transaction: t });
+    if (!dossier) { await t.rollback(); return res.status(404).json({ error: 'Dossier non trouvé' }); }
+    const { id_user } = req.body;
+    const compte = await Utilisateur.findByPk(id_user, { transaction: t });
+    if (!compte) { await t.rollback(); return res.status(404).json({ error: 'Compte utilisateur introuvable.' }); }
+    if (compte.matricule !== dossier.matricule) {
+      await t.rollback();
+      return res.status(409).json({
+        error: `Matricules différents : dossier=${dossier.matricule}, compte=${compte.matricule}.`,
+      });
+    }
+    if (dossier.id_user_associe && dossier.id_user_associe !== compte.id_user) {
+      await t.rollback();
+      return res.status(409).json({ error: 'Ce dossier est déjà associé à un autre compte.' });
+    }
+    dossier.id_user_associe = compte.id_user;
+    await dossier.save({ transaction: t });
+    await t.commit();
+    res.status(200).json({ message: 'Compte associé au dossier.', matricule: dossier.matricule, id_user });
+  } catch (error) {
+    await t.rollback();
+    res.status(500).json({ error: "Erreur lors de l'association : " + error.message });
+  }
+};

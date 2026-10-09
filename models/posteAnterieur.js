@@ -12,10 +12,14 @@ const PosteAnterieur = sequelize.define('PosteAnterieur', {
   date_debut: { type: DataTypes.DATE },
   date_fin: { type: DataTypes.DATE },
   institution: { type: DataTypes.STRING },
-  infop: { type: DataTypes.INTEGER}
+  infop: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: { model: 'info_pro', key: 'id_infop' }
+  }
 }, {
   tableName: 'poste_anterieur',
-  timestamps: false
+  timestamps: true
 });
 
 // Associations

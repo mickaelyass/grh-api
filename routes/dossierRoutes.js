@@ -1,53 +1,39 @@
-const express= require('express');
+// routes/dossierRoutes.js — routes sécurisées (authenticate + requireRole)
+const express = require('express');
+const router = express.Router();
+const {
+  createMutation, creteDossier, getAllDossiers, getDossierById,
+  getDossierByMaticule, searchDossiersByNomAndService, updateDossier,
+  updateEtat, deletedossier, assignUser, getEtat, getCongeByMatricule,
+} = require('../controllers/dossierController.js');
+const { authenticate, requireRole } = require('../utils/auth');
 
-const router = express.Router(); 
+// Création d'un dossier (admin — le dossier précède l'association au compte)
+router.post('/', authenticate, requireRole('admin'), creteDossier);
 
-const {createMutation,creteDossier,getAllDossiers,getDossierById
-  ,getDossierByMaticule,searchDossiersByNomAndService,updateDossier,updateEtat,deletedossier,
- 
-}=require('../controllers/dossierController.js');
+router.get('/', authenticate, getAllDossiers);
 
-//const { hashPassword, comparePassword, generateToken } = require('../utils/auth'); // Importez vos fonctions utilitaires
+// Recherche nom/service (AVANT /:id pour éviter l'ambiguïté)
+router.get('/search', authenticate, searchDossiersByNomAndService);
 
-  // Création d'un dossier
-  router.post('/', 
-    creteDossier
-  );
-  
-  
-router.get('/', 
-  getAllDossiers
-  );
+// État d'un agent / congés d'un agent (AVANT les routes paramétrées)
+router.get('/etat/:matricule', authenticate, getEtat);
+router.get('/conges/:matricule', authenticate, getCongeByMatricule);
+router.get('/user/:matricule', authenticate, getDossierByMaticule);
 
-// Route pour récupérer des dossiers filtrés par nom et/ou service
-router.get('/search', 
-  searchDossiersByNomAndService
-);
+router.get('/:id', authenticate, getDossierById);
 
-router.get('/:id', 
-  getDossierById
-); 
+// Mise à jour (admin + encadrement, périmètre vérifié dans le contrôleur)
+router.put('/:id', authenticate, requireRole('admin', 'directrice', 'chef_service'), updateDossier);
 
-router.get('/user/:matricule', 
-  getDossierByMaticule
-);
+// Association dossier <-> compte par l'admin (égalité des matricules)
+router.put('/:id/assign-user', authenticate, requireRole('admin'), assignUser);
 
+router.put('/:id_dossier/etat', authenticate, requireRole('admin', 'directrice', 'chef_service'), updateEtat);
 
-// Route pour mettre à jour un dossier
-router.put('/:id',
-   updateDossier);
+// Archivage (soft-delete) — admin uniquement
+router.delete('/:id_dossier', authenticate, requireRole('admin'), deletedossier);
 
-// Route to update the etat_depart field in the Dossier
-router.put('/:id_dossier/etat', 
-  updateEtat
-);
+router.post('/mutations/:matricule', authenticate, requireRole('admin', 'directrice', 'chef_service'), createMutation);
 
-router.delete('/:id_dossier', 
-  deletedossier
-);
-
- router.post('/mutations/:matricule', 
-  createMutation); 
-
-
-  module.exports = router;
+module.exports = router;

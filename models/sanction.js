@@ -10,10 +10,16 @@ const Sanction = sequelize.define('Sanction', {
   },
   sanction_punitive: { type: DataTypes.STRING },
   nature_sanction: { type: DataTypes.STRING },
-  infoc: {type: DataTypes.INTEGER}
+  date_sanction: { type: DataTypes.DATE },
+  motif_sanction: { type: DataTypes.TEXT },
+  infoc: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: { model: 'info_complementaire', key: 'id_infoc' }
+  }
 }, {
   tableName: 'sanction',
-  timestamps: false
+  timestamps: true
 });
 
 // Associations

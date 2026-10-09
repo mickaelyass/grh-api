@@ -10,26 +10,23 @@ const utilisteurRoutes = require('./routes/utilisateurRoutes');
 const dossierRoutes = require('./routes/dossierRoutes');
 const congeRoutes = require('./routes/congeRoutes');
 const uploadRouter = require('./routes/userProfileRoute');
-const presenceRoutes = require("./routes/presenceRoutes");
 const notificationRoutes = require('./routes/notificationRoute');
 const evaluationRoutes = require('./routes/evaluationRoute');
+const fs = require('fs');
 const { init: initSocket } = require('./utils/socket');
+const { originesAutorisees } = require('./utils/origines');
 const { planifierCronConges } = require('./cronjob/congesCron');
 
 const app = express();
-// ... après const app = express();
-/* app.use(
+
+// En-têtes de sécurité (CSP désactivée : l'API sert PDF/images au frontend
+// via /doc et /uploads ; CORP cross-origin pour autoriser le chargement).
+app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        "default-src": ["'self'"],
-        "connect-src": ["'self'","https://app-backend-011q.onrender.com" ],
-        "img-src": ["'self'", "data:", "blob:"],
-        "style-src": ["'self'", "'unsafe-inline'"],
-      },
-    },
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
-); */
+);
 
 // ... reste de tes middlewares (express.json, cors, etc.)
 const server = http.createServer(app);
@@ -37,10 +34,14 @@ const server = http.createServer(app);
 // Middleware
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
+// Origines CORS : FRONTEND_URL (une ou plusieurs, séparées par des virgules).
+// Aucune valeur en dur — voir utils/origines.js.
+const origines = originesAutorisees();
+console.log('CORS — origines autorisées:', origines.join(', '));
 app.use(
   cors({
-    origin:`http://localhost:3000` , // Utilise FRONTEND_URL depuis .env process.env.FRONTEND_URL 
-    methods: '*',
+    origin: origines,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
 );
 
@@ -56,7 +57,6 @@ app.use('/api', uploadRouter);
 app.use('/api/users', utilisteurRoutes);
 app.use('/api/dossiers', dossierRoutes);
 app.use('/api', congeRoutes);
-app.use('/api/presences', presenceRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 
@@ -67,6 +67,14 @@ const port = process.env.PORT ;
 const dbName = process.env.DB_NAME;
 console.log('Nom de la base de données:', dbName,port);
 
+// Index additionnels (idempotents : CREATE INDEX IF NOT EXISTS).
+const appliquerIndex = async () => {
+  const chemin = path.join(__dirname, 'migrations', '010_index.sql');
+  if (!fs.existsSync(chemin)) return;
+  const sql = fs.readFileSync(chemin, 'utf8');
+  await sequelize.query(sql);
+};
+
 server.listen(port, () => {
   console.log(`Serveur en cours d'exécution sur le port ${port}.`);
 
@@ -74,10 +82,14 @@ server.listen(port, () => {
   sequelize.authenticate()
     .then(() => {
       console.log('Connexion à la base de données établie avec succès.');
-      return sequelize.sync({ alter: true });
+      // JAMAIS d'`alter: true` : l'historique sync({alter:true}) a généré des
+      // centaines d'index/FK dupliqués. sync() crée les tables manquantes sans
+      // modifier le schéma existant ; les migrations/ sont la référence.
+      return sequelize.sync();
     })
+    .then(() => appliquerIndex())
     .then(() => {
-      console.log('Base de données synchronisée.');
+      console.log('Base de données synchronisée (index inclus).');
       planifierCronConges();
     })
     .catch((err) => {

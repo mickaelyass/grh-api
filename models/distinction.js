@@ -10,11 +10,18 @@ const Distinction = sequelize.define('Distinction', {
   },
   ref_distinction: { type: DataTypes.STRING },
   detail_distinction: { type: DataTypes.TEXT },
-  infoc: { type: DataTypes.INTEGER}
+  nature_distinction: { type: DataTypes.STRING },
+  date_distinction: { type: DataTypes.DATE },
+  motif_distinction: { type: DataTypes.TEXT },
+  infoc: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: { model: 'info_complementaire', key: 'id_infoc' }
+  }
 
 }, {
   tableName: 'distinction',
-  timestamps: false
+  timestamps: true
 });
 
 // Associations

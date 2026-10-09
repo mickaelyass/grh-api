@@ -73,6 +73,32 @@ const sequelize = new Sequelize(databaseUrl, {
   },
 });
 
+// ⚠️ Correction importante : quand l'URI contient `sslmode=...` (cas de
+// Supabase), Sequelize fait Object.assign(dialectOptions, pgConnectionString
+// .parse(uri)) qui REMPLACE notre dialectOptions.ssl par un objet vide {}.
+// pg interprète alors ssl={} comme « SSL avec vérification du certificat »
+// et la connexion échoue avec "self-signed certificate in certificate chain".
+// On réapplique donc notre config SSL explicite APRÈS la construction.
+// NB : le connection-manager CLONE deepcopy sequelize.config à la
+// construction, il faut donc corriger les DEUX copies.
+const sslConfig = { require: true, rejectUnauthorized: false };
+const dialectOptionsCibles = [sequelize.options.dialectOptions];
+if (
+  sequelize.connectionManager &&
+  sequelize.connectionManager.config &&
+  sequelize.connectionManager.config.dialectOptions
+) {
+  dialectOptionsCibles.push(sequelize.connectionManager.config.dialectOptions);
+}
+for (const opts of dialectOptionsCibles) {
+  if (useSsl) {
+    opts.ssl = { ...sslConfig };
+  } else {
+    // En local : on retire un éventuel ssl injecté par l'URI (DB_SSL=false gagne)
+    delete opts.ssl;
+  }
+}
+
 console.log(
   `[db] Connexion PostgreSQL -> hôte=${dbHost} base=${dbName} ssl=${useSsl ? 'activé' : 'désactivé'}`
 );

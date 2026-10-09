@@ -7,13 +7,17 @@ const Diplome = sequelize.define('Diplome', {
     primaryKey: true,
     autoIncrement: true
   },
-  nom_diplome: { type: DataTypes.STRING },
+  nom_diplome: { type: DataTypes.STRING, allowNull: false },
   date_obtention: { type: DataTypes.DATE },
   institution: { type: DataTypes.STRING },
-  infop: { type: DataTypes.INTEGER}
+  infop: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: { model: 'info_pro', key: 'id_infop' }
+  }
 }, {
   tableName: 'diplome',
-  timestamps: false
+  timestamps: true
 });
 
 // Associations
