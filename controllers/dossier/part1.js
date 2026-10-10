@@ -79,28 +79,47 @@ exports.creteDossier = async (req, res) => {
       infop: pro.id_infop,
     }, { transaction: t });
     if (poste) {
-      await PosteAnterieur.create({
-        nom_poste: poste.nom_poste, date_debut: poste.date_debut || null,
-        date_fin: poste.date_fin || null, institution: poste.institution, infop: pro.id_infop,
-      }, { transaction: t });
+      // Reçu soit en objet unique (ancien client), soit en tableau (CollectionEditor).
+      const postes = Array.isArray(poste) ? poste : [poste];
+      for (const p of postes) {
+        if (!p || typeof p !== 'object') continue;
+        await PosteAnterieur.create({
+          nom_poste: p.nom_poste, date_debut: p.date_debut || null,
+          date_fin: p.date_fin || null, institution: p.institution, infop: pro.id_infop,
+        }, { transaction: t });
+      }
     }
     if (diplome) {
-      await Diplome.create({
-        nom_diplome: diplome.nom_diplome, date_obtention: diplome.date_obtention || null,
-        institution: diplome.institution, infop: pro.id_infop,
-      }, { transaction: t });
+      const diplomes = Array.isArray(diplome) ? diplome : [diplome];
+      for (const dpl of diplomes) {
+        if (!dpl || typeof dpl !== 'object') continue;
+        await Diplome.create({
+          nom_diplome: dpl.nom_diplome, date_obtention: dpl.date_obtention || null,
+          institution: dpl.institution, infop: pro.id_infop,
+        }, { transaction: t });
+      }
     }
     if (sanction) {
-      await Sanction.create({
-        nature_sanction: sanction.nature_sanction, date_sanction: sanction.date_sanction || null,
-        motif_sanction: sanction.motif_sanction, infoc: comp.id_infoc,
-      }, { transaction: t });
+      const sanctions = Array.isArray(sanction) ? sanction : [sanction];
+      for (const s of sanctions) {
+        if (!s || typeof s !== 'object') continue;
+        await Sanction.create({
+          sanction_punitive: s.sanction_punitive,
+          nature_sanction: s.nature_sanction, date_sanction: s.date_sanction || null,
+          motif_sanction: s.motif_sanction, infoc: comp.id_infoc,
+        }, { transaction: t });
+      }
     }
     if (distinction) {
-      await Distinction.create({
-        nature_distinction: distinction.nature_distinction, date_distinction: distinction.date_distinction || null,
-        motif_distinction: distinction.motif_distinction, infoc: comp.id_infoc,
-      }, { transaction: t });
+      const distinctions = Array.isArray(distinction) ? distinction : [distinction];
+      for (const ds of distinctions) {
+        if (!ds || typeof ds !== 'object') continue;
+        await Distinction.create({
+          ref_distinction: ds.ref_distinction, detail_distinction: ds.detail_distinction,
+          nature_distinction: ds.nature_distinction, date_distinction: ds.date_distinction || null,
+          motif_distinction: ds.motif_distinction, infoc: comp.id_infoc,
+        }, { transaction: t });
+      }
     }
     await crediterJusqua(matricule, new Date(), { transaction: t, auteur: req.user.matricule });
     await t.commit();

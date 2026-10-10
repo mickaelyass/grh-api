@@ -1,6 +1,7 @@
 // controllers/dossier/helpers.js — périmètre, pagination, vérification d'accès
 const {
   Dossier, InfoIdent, InfoPro, InfoBank, InfoComplementaire, SoldeConge,
+  Diplome, PosteAnterieur, Distinction, Sanction, Details,
 } = require('../../models/association');
 
 const peutToutVoir = (role) => ['admin', 'directrice'].includes(role);
@@ -26,9 +27,17 @@ const porteeDossier = async (req, transaction) => {
 
 const INCLUDE_DOSSIER = [
   { model: InfoIdent },
-  { model: InfoPro },
+  {
+    model: InfoPro,
+    // Collections rattachées à InfoPro (cf. models/association.js) — sans
+    // elles, le front ne rechargeait jamais les diplômes / postes déjà saisis.
+    include: [{ model: Diplome }, { model: PosteAnterieur }, { model: Details }],
+  },
   { model: InfoBank },
-  { model: InfoComplementaire },
+  {
+    model: InfoComplementaire,
+    include: [{ model: Distinction }, { model: Sanction }],
+  },
   { model: SoldeConge }, // solde de congés de l'agent dans la lecture du dossier
 ];
 

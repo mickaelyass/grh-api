@@ -2,10 +2,25 @@
 const sequelize = require('../../db');
 const {
   Dossier, InfoIdent, InfoPro, InfoBank, InfoComplementaire,
-  Utilisateur,
+  Utilisateur, Diplome, PosteAnterieur, Distinction, Sanction,
 } = require('../../models/association');
 const { crediterJusqua } = require('../../services/soldeService');
 const { verifierAccesDossier } = require('./helpers');
+const { getIo } = require('../../utils/socket');
+
+/**
+ * Remplace la collection 1:N d'une ligne (diplômes, postes, distinctions,
+ * sanctions). La liste envoyée devient l'état final : la liste éditée dans
+ * l'interface est la source de vérité, on détruit puis on recrée dans la
+ * transaction. Un tableau vide signifie « tout supprimer ».
+ */
+const remplacerCollection = async (Model, items, valeursFk, transaction) => {
+  await Model.destroy({ where: valeursFk, transaction });
+  const lignes = (Array.isArray(items) ? items : [])
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({ ...item, ...valeursFk }));
+  if (lignes.length) await Model.bulkCreate(lignes, { transaction });
+};
 
 exports.updateDossier = async (req, res) => {
   const t = await sequelize.transaction();
@@ -27,10 +42,29 @@ exports.updateDossier = async (req, res) => {
     if (infoComplementaire) {
       await InfoComplementaire.update(infoComplementaire, { where: { dossier_id: dossier.id_dossier }, transaction: t });
     }
+
+    // Collections éditées dans le formulaire (tableaux) : remplacées telles
+    // quelles. Absentes du body → inchangées (compat avec l'ancien client).
+    const pro = await InfoPro.findOne({ where: { dossier_id: dossier.id_dossier }, transaction: t });
+    const comp = await InfoComplementaire.findOne({ where: { dossier_id: dossier.id_dossier }, transaction: t });
+    if (pro && Array.isArray(req.body.diplome)) {
+      await remplacerCollection(Diplome, req.body.diplome, { infop: pro.id_infop }, t);
+    }
+    if (pro && Array.isArray(req.body.poste)) {
+      await remplacerCollection(PosteAnterieur, req.body.poste, { infop: pro.id_infop }, t);
+    }
+    if (comp && Array.isArray(req.body.distinction)) {
+      await remplacerCollection(Distinction, req.body.distinction, { infoc: comp.id_infoc }, t);
+    }
+    if (comp && Array.isArray(req.body.sanction)) {
+      await remplacerCollection(Sanction, req.body.sanction, { infoc: comp.id_infoc }, t);
+    }
+
     if (infoPro && infoPro.dat_prise_fonction) {
       await crediterJusqua(dossier.matricule, new Date(), { transaction: t, auteur: req.user.matricule });
     }
     await t.commit();
+    try { getIo().emit('dossierMisAJour', { id_dossier: dossier.id_dossier, matricule: dossier.matricule }); } catch (e) { /* socket optionnel */ }
     const { INCLUDE_DOSSIER } = require('./helpers');
     const maj = await Dossier.findByPk(dossier.id_dossier, { include: INCLUDE_DOSSIER });
     res.status(200).json(maj);
