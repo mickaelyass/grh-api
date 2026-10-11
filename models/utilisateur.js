@@ -1,7 +1,9 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
-const ROLES = ['admin', 'directrice', 'chef_service', 'employe'];
+// 'securite' — agent de sécurité : pointage quotidien des présences
+// (workspace front /securite/*). Ajouté à l'ENUM via migrations/011.
+const ROLES = ['admin', 'directrice', 'chef_service', 'securite', 'employe'];
 
 const Utilisateur = sequelize.define('Utilisateur', {
   id_user: {

@@ -1,3 +1,5 @@
+
+
 // controllers/dossier/helpers.js — périmètre, pagination, vérification d'accès
 const {
   Dossier, InfoIdent, InfoPro, InfoBank, InfoComplementaire, SoldeConge,

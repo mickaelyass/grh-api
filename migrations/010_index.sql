@@ -56,3 +56,13 @@ CREATE INDEX IF NOT EXISTS idx_eval_matricule  ON evaluation (matricule);
 -- Comptes actifs par rôle (connexions / listes d'administration)
 -- ---------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_user_role ON utilisateur (role) WHERE is_active = true;
+
+-- ---------------------------------------------------------------------------
+-- Présences : une fiche par agent et par jour (ON CONFLICT de l'upsert) +
+-- lecture de la journée du pointage.
+-- NOTE : l'index unique est requis par FichePresence.upsert(conflictFields)
+-- de controllers/presenceController.js. S'il échoue (doublons hérités du
+-- module mis en pause), dédupliquer puis relancer.
+-- ---------------------------------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS uq_fiche_presence_agent_jour ON fichepresence (matricule, date_presence);
+CREATE INDEX IF NOT EXISTS idx_fiche_presence_date ON fichepresence (date_presence DESC);

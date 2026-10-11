@@ -12,6 +12,7 @@ const congeRoutes = require('./routes/congeRoutes');
 const uploadRouter = require('./routes/userProfileRoute');
 const notificationRoutes = require('./routes/notificationRoute');
 const evaluationRoutes = require('./routes/evaluationRoute');
+const presenceRoutes = require('./routes/presenceRoutes');
 const fs = require('fs');
 const { init: initSocket } = require('./utils/socket');
 const { originesAutorisees } = require('./utils/origines');
@@ -59,6 +60,8 @@ app.use('/api/dossiers', dossierRoutes);
 app.use('/api', congeRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/evaluations', evaluationRoutes);
+// Fiches de présence (pointage) — module réactivé (routes sécurisées).
+app.use('/api/presences', presenceRoutes);
 
 
 
@@ -67,12 +70,23 @@ const port = process.env.PORT ;
 const dbName = process.env.DB_NAME;
 console.log('Nom de la base de données:', dbName,port);
 
-// Index additionnels (idempotents : CREATE INDEX IF NOT EXISTS).
-const appliquerIndex = async () => {
-  const chemin = path.join(__dirname, 'migrations', '010_index.sql');
-  if (!fs.existsSync(chemin)) return;
-  const sql = fs.readFileSync(chemin, 'utf8');
-  await sequelize.query(sql);
+// Migrations SQL idempotentes (migrations/*.sql, appliquées par ordre
+// alphabétique : 010_index.sql, 011_role_securite.sql, …).
+const appliquerMigrations = async () => {
+  const dossier = path.join(__dirname, 'migrations');
+  if (!fs.existsSync(dossier)) return;
+  const fichiers = fs.readdirSync(dossier).filter((f) => f.endsWith('.sql')).sort();
+  for (const fichier of fichiers) {
+    const sql = fs.readFileSync(path.join(dossier, fichier), 'utf8');
+    try {
+      await sequelize.query(sql);
+      console.log(`Migration appliquée : ${fichier}`);
+    } catch (err) {
+      // Une migration qui échoue ne doit pas tuer le serveur, mais elle doit
+      // être visible dans les logs (ex. index unique bloqué par des doublons).
+      console.error(`Migration ${fichier} en échec :`, err.message);
+    }
+  }
 };
 
 server.listen(port, () => {
@@ -87,7 +101,7 @@ server.listen(port, () => {
       // modifier le schéma existant ; les migrations/ sont la référence.
       return sequelize.sync();
     })
-    .then(() => appliquerIndex())
+    .then(() => appliquerMigrations())
     .then(() => {
       console.log('Base de données synchronisée (index inclus).');
       planifierCronConges();
