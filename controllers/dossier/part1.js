@@ -57,6 +57,14 @@ exports.creteDossier = async (req, res) => {
       await t.rollback();
       return res.status(409).json({ error: 'Un dossier existe déjà pour ce matricule.' });
     }
+    // Un dossier ne peut exister sans le compte de l'agent : le matricule doit
+    // correspondre à un utilisateur réel. Sans cette garde, un simple appel POST
+    // permettait de créer un dossier « fantôme » pour n'importe quel matricule.
+    const user = await Utilisateur.findOne({ where: { matricule }, transaction: t });
+    if (!user) {
+      await t.rollback();
+      return res.status(404).json({ error: `Aucun utilisateur trouvé pour le matricule « ${matricule} ». Créez d'abord le compte de l'agent.` });
+    }
     const dossier = await Dossier.create({ matricule }, { transaction: t });
     await InfoIdent.create({ ...infoIdent, dossier_id: dossier.id_dossier }, { transaction: t });
     const pro = await InfoPro.create({ ...infoPro, dossier_id: dossier.id_dossier }, { transaction: t });
