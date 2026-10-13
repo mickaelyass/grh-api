@@ -1,7 +1,7 @@
 // controllers/dossier/part2.js — lectures (liste, recherche, détail)
 const { Op } = require('sequelize');
 const {
-  Dossier, InfoIdent, InfoPro, Details,
+  Dossier, InfoIdent, InfoPro, Details, InfoBank,
 } = require('../../models/association');
 const {
   peutToutVoir, serviceDeChef, porteeDossier,
@@ -21,6 +21,8 @@ exports.getAllDossiers = async (req, res) => {
           // agents via InfoPro.Details[0] — sans ce include, la liste est vide.
           include: [{ model: Details, attributes: ['etat', 'date_changement'],
             order: [['createdAt', 'DESC']] }] },
+        // Téléphone (InfoBank) affiché dans certaines colonnes de la liste.
+        { model: InfoBank, attributes: ['mtn'] },
       ],
       order: [['createdAt', 'DESC']],
       limit, offset, distinct: true,
@@ -57,6 +59,7 @@ exports.searchDossiersByNomAndService = async (req, res) => {
           // de recherche.
           include: [{ model: Details, attributes: ['etat', 'date_changement'],
             order: [['createdAt', 'DESC']] }] },
+        { model: InfoBank, attributes: ['mtn'] },
       ],
       order: [['createdAt', 'DESC']],
       limit, offset, distinct: true,
