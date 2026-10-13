@@ -1,7 +1,7 @@
 // controllers/dossier/part2.js — lectures (liste, recherche, détail)
 const { Op } = require('sequelize');
 const {
-  Dossier, InfoIdent, InfoPro,
+  Dossier, InfoIdent, InfoPro, Details,
 } = require('../../models/association');
 const {
   peutToutVoir, serviceDeChef, porteeDossier,
@@ -16,7 +16,11 @@ exports.getAllDossiers = async (req, res) => {
       where: portee,
       include: [
         { model: InfoIdent, attributes: ['nom', 'prenom', 'sexe'] },
-        { model: InfoPro, attributes: ['corps', 'grade_paye', 'poste_actuel_service', 'fonctions'] },
+        { model: InfoPro, attributes: ['corps', 'grade_paye', 'poste_actuel_service', 'fonctions'],
+          // Détails de mutation (etat Actif/Retraité/…) : le front classe les
+          // agents via InfoPro.Details[0] — sans ce include, la liste est vide.
+          include: [{ model: Details, attributes: ['etat', 'date_changement'],
+            order: [['createdAt', 'DESC']] }] },
       ],
       order: [['createdAt', 'DESC']],
       limit, offset, distinct: true,
@@ -47,7 +51,12 @@ exports.searchDossiersByNomAndService = async (req, res) => {
       include: [
         { model: InfoIdent, attributes: ['nom', 'prenom', 'sexe'], required: !!q.trim() },
         { model: InfoPro, attributes: ['corps', 'poste_actuel_service', 'fonctions'],
-          required: !!service.trim() || req.user.role === 'chef_service' },
+          required: !!service.trim() || req.user.role === 'chef_service',
+          // Même include Details que getAllDossiers : la classification du front
+          // (InfoPro.Details[0].etat) doit fonctionner aussi sur les résultats
+          // de recherche.
+          include: [{ model: Details, attributes: ['etat', 'date_changement'],
+            order: [['createdAt', 'DESC']] }] },
       ],
       order: [['createdAt', 'DESC']],
       limit, offset, distinct: true,
